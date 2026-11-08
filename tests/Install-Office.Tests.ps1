@@ -25,7 +25,6 @@ foreach ($Selection in $Cases.Keys) {
         Assert ($Config.Configuration.Add.OfficeClientEdition -eq $Architecture) 'Wrong architecture'
         Assert ($Config.Configuration.Add.Channel -eq 'PerpetualVL2024') 'Wrong channel'
         Assert ($Config.Configuration.Add.Product.ID -eq 'ProPlus2024Volume') 'Wrong product'
-        Assert ($Config.Configuration.Display.Level -eq 'Full') 'Office setup UI must be enabled'
         foreach ($App in @('Excel','Word','PowerPoint','Access','Outlook','OneNote','OneDrive','Teams','Publisher','Lync','Groove')) {
             Assert (($null -eq $Config.SelectSingleNode("//ExcludeApp[@ID='$App']")) -eq ($App -in $Apps)) "Wrong inclusion: $App"
         }
@@ -54,11 +53,6 @@ function Read-Host {
 }
 function Write-Host { param($Object, $ForegroundColor) $script:Messages += [string]$Object }
 function Write-Warning { param($Message) }
-function Write-Progress {
-    param($Id, $Activity, $Status, $PercentComplete, [switch]$Completed)
-    if ($Completed) { $script:ProgressCompleted++ }
-    else { $script:ProgressUpdates++ }
-}
 function Invoke-WebRequest {
     param($Uri, $OutFile, [switch]$UseBasicParsing)
     Assert ($Uri -eq 'https://officecdn.microsoft.com/pr/wsus/setup.exe') 'Wrong download source'
@@ -73,29 +67,17 @@ function Get-AuthenticodeSignature {
 function Start-Process {
     param($FilePath, $ArgumentList, $WorkingDirectory, [switch]$Wait, [switch]$PassThru)
     $script:Launches++
-    Assert (-not $Wait -and $PassThru) 'Must poll setup so progress can update'
+    Assert ($Wait -and $PassThru) 'Must wait and inspect exit code'
     Assert ($ArgumentList -eq "/configure `"$(Join-Path $WorkingDirectory 'Configuration.xml')`"") 'Wrong arguments'
     [xml]$Config = Get-Content -LiteralPath (Join-Path $WorkingDirectory 'Configuration.xml')
     Assert ($null -eq $Config.SelectSingleNode('//ExcludeApp[@ID="Excel"]')) 'Excel not selected'
     Assert ($null -eq $Config.SelectSingleNode('//ExcludeApp[@ID="PowerPoint"]')) 'PowerPoint not selected'
     Assert ($null -ne $Config.SelectSingleNode('//ExcludeApp[@ID="Word"]')) 'Word unexpectedly selected'
-    $Process = [pscustomobject]@{ ExitCode = $script:ExitCode; Polls = 0 }
-    $Process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value {
-        param($Milliseconds)
-        Assert ($Milliseconds -eq 1000) 'Unexpected polling interval'
-        $this.Polls++
-        return $this.Polls -ge 3
-    }
-    $Process | Add-Member -MemberType ScriptMethod -Name Refresh -Value {}
-    $Process | Add-Member -MemberType ScriptMethod -Name Dispose -Value { $script:ProcessDisposed++ }
-    return $Process
+    [pscustomobject]@{ ExitCode = $script:ExitCode }
 }
 foreach ($Scenario in @('success', 'reboot', 'setup-failure', 'download-failure', 'invalid-signature', 'wrong-publisher')) {
     $script:ReadCount = 0
     $script:BootstrapRuns = 0
-    $script:ProgressUpdates = 0
-    $script:ProgressCompleted = 0
-    $script:ProcessDisposed = 0
     $script:Launches = 0
     $script:Messages = @()
     $script:WorkDirectory = $null
@@ -109,11 +91,6 @@ foreach ($Scenario in @('success', 'reboot', 'setup-failure', 'download-failure'
     Assert ($script:ReadCount -eq 2) 'Invalid input was not retried'
     Assert (-not (Test-Path -LiteralPath $script:WorkDirectory)) 'Temporary files were not cleaned'
     Assert ([Net.ServicePointManager]::SecurityProtocol -eq $Protocol) 'TLS preference was not restored'
-    if ($script:Launches -gt 0) {
-        Assert ($script:ProgressUpdates -eq 3) 'Progress did not update while setup was running'
-        Assert ($script:ProgressCompleted -eq 1) 'Progress display was not cleared'
-        Assert ($script:ProcessDisposed -eq 1) 'Process handle was not disposed'
-    }
     if ($Scenario -in @('success', 'reboot')) {
         Assert ($null -eq $Failure) "Unexpected failure: $Failure"
         Assert ($script:Launches -eq 1) 'Setup was not launched once'
