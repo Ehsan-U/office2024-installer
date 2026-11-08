@@ -1,4 +1,70 @@
-## Download Microsoft 365 (Office 365) & Microsoft Office 2024 LTSC via ODT with PowerShell
+# Office 2024: Excel, Word, and PowerPoint
+
+`src/Install-Office.ps1` is a self-contained interactive installer for Office LTSC
+2024. Open **PowerShell as administrator** on Windows 10 or Windows 11 and run:
+
+```powershell
+irm https://raw.githubusercontent.com/Ehsan-U/office2024-installer/master/src/Install-Office.ps1 | iex
+```
+
+No repository checkout or additional script files are needed on the Windows
+machine. This project is based on [farag2/Install-Office](https://github.com/farag2/Install-Office).
+
+The menu contains exactly three choices:
+
+```text
+1. Excel
+2. Word
+3. PowerPoint
+
+Enter numbers separated by commas: 1,3
+```
+
+Enter `1` for Excel, `2` for Word, `3` for PowerPoint, or any comma-separated
+combination. Enter `1,2,3` to install all three. Invalid input is retried; spaces
+and duplicate numbers are accepted. Press Ctrl+C to cancel.
+
+To run the local checkout instead:
+
+```powershell
+& .\src\Install-Office.ps1
+```
+
+The installer downloads Microsoft's Office Deployment Tool, checks its Microsoft
+Authenticode signature, and runs `/configure` to download and install the selected
+apps directly from Microsoft. It uses `ProPlus2024Volume` / `PerpetualVL2024`,
+matches the Windows language with English fallback, and excludes all other suite
+apps. It uses 64-bit Office on 64-bit Windows, 32-bit on 32-bit Windows, or matches
+an existing Click-to-Run installation's architecture. Setup shows installation
+progress, and the script waits for completion and checks the exit code.
+
+A valid Office LTSC 2024 license is required for activation; this script installs
+Office and does not activate it. Setup accepts Microsoft's EULA. Existing Office
+installations may conflict with this edition; the script does not automatically
+uninstall them or force running Office apps to close. Reconfiguring an existing
+2024 suite can change which of its apps are installed. Temporary installer files
+are cleaned up after setup; Office's own logs remain in Windows' TEMP folder.
+
+This entry point does not run `Configure_Office.ps1` or the upstream region and
+registry modifications.
+
+## Development checks
+
+Run the dependency-free tests with Windows PowerShell 5.1 or PowerShell 7:
+
+```powershell
+powershell -NoProfile -File .\tests\Install-Office.Tests.ps1
+# Or: pwsh -NoProfile -File ./tests/Install-Office.Tests.ps1
+```
+
+These check menu parsing, all app combinations, generated XML, and mocked
+installation success/failure paths without downloading or installing Office.
+A real installation still needs to be tested on Windows with an appropriate license.
+
+## Original advanced download/install workflow
+
+The original scripts below remain available for offline downloads and additional
+Office products.
 
 ## How-to
 

@@ -1,0 +1,17 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Windows PowerShell 5.1
+        shell: powershell
+        run: ./tests/Install-Office.Tests.ps1
+      - name: PowerShell 7
+        shell: pwsh
+        run: ./tests/Install-Office.Tests.ps1
