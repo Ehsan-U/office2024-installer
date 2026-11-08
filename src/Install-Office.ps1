@@ -11,7 +11,7 @@ Office activation requires a valid license. No activation keys are supplied.
 # when this script is executed through Invoke-Expression.
 & {
     $ErrorActionPreference = 'Stop'
-    $ProgressPreference = 'SilentlyContinue'
+    $ProgressPreference = 'Continue'
 
     function ConvertTo-OfficeSelection {
         param([string]$Selection)
@@ -93,6 +93,35 @@ Office activation requires a valid license. No activation keys are supplied.
         return '32'
     }
 
+    function Invoke-OfficeSetup {
+        param([string]$SetupPath, [string]$ConfigPath, [string]$WorkDirectory)
+
+        $Activity = 'Office 2024 download and installation'
+        $Timer = [Diagnostics.Stopwatch]::StartNew()
+        $NextMessage = 15
+        $Process = $null
+        try {
+            Write-Progress -Id 2024 -Activity $Activity -Status 'Starting Microsoft Office setup...' -PercentComplete -1
+            $Process = Start-Process -FilePath $SetupPath -ArgumentList "/configure `"$ConfigPath`"" -WorkingDirectory $WorkDirectory -PassThru
+            while (-not $Process.WaitForExit(1000)) {
+                $Elapsed = $Timer.Elapsed.ToString('hh\:mm\:ss')
+                Write-Progress -Id 2024 -Activity $Activity -Status "Setup is running. Elapsed: $Elapsed. See the Office setup window for detailed progress." -PercentComplete -1
+                # A regular line remains visible in hosts that do not render Write-Progress.
+                if ($Timer.Elapsed.TotalSeconds -ge $NextMessage) {
+                    Write-Host "Office setup is still running (elapsed $Elapsed)."
+                    $NextMessage = $Timer.Elapsed.TotalSeconds + 15
+                }
+            }
+            $Process.Refresh()
+            return $Process.ExitCode
+        }
+        finally {
+            $Timer.Stop()
+            Write-Progress -Id 2024 -Activity $Activity -Completed
+            if ($null -ne $Process) { $Process.Dispose() }
+        }
+    }
+
     function Install-SelectedOffice {
         Assert-OfficeEnvironment
 
@@ -137,12 +166,12 @@ Office activation requires a valid license. No activation keys are supplied.
             }
 
             Write-Host 'Downloading and installing the selected apps. Keep this window open.'
-            $Process = Start-Process -FilePath $SetupPath -ArgumentList "/configure `"$ConfigPath`"" -WorkingDirectory $WorkDirectory -Wait -PassThru
-            if ($Process.ExitCode -eq 3010) {
+            $ExitCode = Invoke-OfficeSetup -SetupPath $SetupPath -ConfigPath $ConfigPath -WorkDirectory $WorkDirectory
+            if ($ExitCode -eq 3010) {
                 Write-Host 'Office installation completed. Restart Windows to finish.' -ForegroundColor Yellow
             }
-            elseif ($Process.ExitCode -ne 0) {
-                throw "Office installation failed (exit code $($Process.ExitCode)). Check the Office setup logs in your Windows TEMP folder."
+            elseif ($ExitCode -ne 0) {
+                throw "Office installation failed (exit code $ExitCode). Check the Office setup logs in your Windows TEMP folder."
             }
             else {
                 Write-Host 'Office installation completed.' -ForegroundColor Green
